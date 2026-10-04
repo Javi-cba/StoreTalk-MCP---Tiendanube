@@ -1,4 +1,4 @@
-# 🛍️ [Nombre del proyecto]
+# 🛍️ StoreTalk MCP
 
 > 🚧 **Proyecto en desarrollo** — las funcionalidades y la documentación pueden cambiar.
 
