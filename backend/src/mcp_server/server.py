@@ -1,6 +1,7 @@
 from fastmcp import FastMCP
 
 from src.mcp_server.auth import ApiKeyVerifier
+from src.mcp_server.branding import server_icons
 from src.mcp_server.tools import categories, coupons, orders, products
 
 
@@ -17,6 +18,7 @@ def create_mcp(auth: ApiKeyVerifier | None = None) -> FastMCP:
             "missing, relay that exact scope to the user."
         ),
         auth=auth,
+        icons=server_icons(),
     )
     products.register(server)
     categories.register(server)

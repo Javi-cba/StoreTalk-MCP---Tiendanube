@@ -10,6 +10,7 @@ from src.config import get_settings
 from src.core.errors import register_error_handlers
 from src.core.logging import configure_logging
 from src.database import engine
+from src.mcp_server.branding import icon_bytes
 from src.mcp_server.server import mcp
 from src.rest import stores, tiendanube_oauth
 from src.services.tiendanube.client import close_http_client, create_http_client
@@ -58,8 +59,10 @@ async def health() -> JSONResponse:
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon() -> Response:
-    # Browsers request it automatically when opening the OAuth URLs by hand.
-    return Response(status_code=204)
+    # Browsers ask for it, and MCP clients that add the server by URL use it as its icon.
+    return Response(
+        icon_bytes(), media_type="image/png", headers={"Cache-Control": "public, max-age=86400"}
+    )
 
 
 app.mount("/", mcp_app)  # mount last; MCP endpoint is /mcp

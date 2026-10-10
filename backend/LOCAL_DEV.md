@@ -74,6 +74,7 @@ Editar `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 Cerrar Claude Desktop por completo (Cmd+Q) y volver a abrirlo. El server aparece en el ícono de herramientas del chat.
 Logs si no conecta: `~/Library/Logs/Claude/mcp-server-storetalk.log`.
+El ícono de StoreTalk viaja en `serverInfo.icons` (data URI, `src/mcp_server/branding.py`) y también se sirve en `/favicon.ico`.
 
 ## Probar tools a mano (MCP Inspector)
 
