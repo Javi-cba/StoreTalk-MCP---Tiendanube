@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Check, Home, Store } from "lucide-react";
+import { Check, Home, Sparkles, Store } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { GlassPanel } from "@/components/ui/glass";
 import { connectCopy } from "@/content/connect";
@@ -11,7 +11,7 @@ export function ConnectSuccess({ store }: { store: ConnectedStore }) {
   const copy = connectCopy.success;
 
   return (
-    <GlassPanel className="grid w-full flex-1 animate-rise-in items-center gap-8 p-6 motion-reduce:animate-none sm:p-8 lg:grid-cols-[2fr_3fr] lg:gap-12 lg:p-12">
+    <GlassPanel className="grid w-full flex-1 animate-rise-in items-center gap-8 p-6 motion-reduce:animate-none sm:p-8 grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-12 lg:p-12">
       <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
         <div className="relative">
           <div aria-hidden className="absolute inset-6 rounded-full bg-linear-to-tr from-emerald-300/40 to-sky-300/40 blur-2xl" />
@@ -35,9 +35,13 @@ export function ConnectSuccess({ store }: { store: ConnectedStore }) {
         </h1>
         <p className="mt-3 max-w-md leading-relaxed text-slate-600">{copy.description}</p>
 
-        {/* Dos acciones principales en fila y "Volver al inicio" centrado debajo, como secundario. */}
+        {/* Siguiente paso destacado (conectar la IA), dos acciones en fila y "Volver al inicio" debajo. */}
         <div className="mt-8 grid w-full gap-3 sm:w-fit sm:grid-cols-2">
-          <ButtonLink href="/dashboard">
+          <ButtonLink href="/connect-ai" className="sm:col-span-2">
+            <Sparkles className="size-4" aria-hidden />
+            {copy.connectAi}
+          </ButtonLink>
+          <ButtonLink href="/dashboard" variant="glass">
             <Store className="size-4" aria-hidden />
             {copy.myStores}
           </ButtonLink>

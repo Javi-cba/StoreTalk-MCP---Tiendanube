@@ -42,7 +42,22 @@ uv run python -m scripts.show_store_token <store_id>           # token de Tienda
 
 Solo funcionan con `ENVIRONMENT=development`.
 
-## Conectar a Claude Code
+## Conectar un asistente con OAuth (recomendado)
+
+Requisitos: backend en `:8000`, frontend en `:3000` y ngrok apuntando al backend (`ngrok http 8000`).
+En el `.env` de la raíz: `PUBLIC_BASE_URL=https://<tu-subdominio>.ngrok-free.dev` (**una sola vez**: si
+está repetida gana la última) y en `frontend/.env.local`: `NEXT_PUBLIC_MCP_URL=https://<tu-subdominio>.ngrok-free.dev/mcp`.
+Reiniciar el backend después de cambiarlo.
+
+- **Claude (web / desktop / celular, también voz):** Configuración → Conectores → Agregar conector
+  personalizado → URL `https://<ngrok>/mcp` → Conectar → login de StoreTalk → elegir tienda → Permitir.
+- **Claude Code:** `claude mcp add --transport http storetalk https://<ngrok>/mcp` y en `claude` → `/mcp` → Authenticate.
+- La guía para usuarios está en el frontend: `/connect-ai`.
+
+ngrok free muestra una página de aviso la primera vez que el navegador abre `/authorize`: tocar "Visit Site".
+El consentimiento vive en `{FRONTEND_ORIGIN}/authorize` (localhost:3000 en local: funciona porque el navegador es el de tu máquina).
+
+## Conectar a Claude Code (API key manual)
 
 ```bash
 claude mcp add --transport http --scope user storetalk http://localhost:8000/mcp \
@@ -51,7 +66,7 @@ claude mcp add --transport http --scope user storetalk http://localhost:8000/mcp
 
 Dentro de `claude`, `/mcp` muestra el estado. Para quitarlo: `claude mcp remove storetalk`.
 
-## Conectar a Claude Desktop (app)
+## Conectar a Claude Desktop con API key (alternativa sin OAuth)
 
 Claude Desktop no acepta URL + header directo; se usa el puente `mcp-remote` (requiere Node/npx).
 Editar `~/Library/Application Support/Claude/claude_desktop_config.json`:

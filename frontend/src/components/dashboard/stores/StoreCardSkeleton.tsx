@@ -8,7 +8,7 @@ const block = "rounded-md bg-slate-200/70";
  */
 export function StoreCardSkeleton() {
   return (
-    <GlassPanel aria-hidden className="grid animate-pulse gap-6 p-5 motion-reduce:animate-none sm:p-6 lg:grid-cols-[2fr_3fr] lg:gap-8">
+    <GlassPanel aria-hidden className="grid animate-pulse gap-6 p-5 motion-reduce:animate-none sm:p-6 grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-8">
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex items-center justify-between gap-2">
           <span className="h-6 w-24 rounded-full bg-slate-200/70" />

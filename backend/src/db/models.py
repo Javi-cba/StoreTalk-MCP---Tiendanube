@@ -129,3 +129,58 @@ class AuditLog(CreatedAtMixin, Base):
     entity_id: Mapped[str] = mapped_column(String(64), nullable=False)
     before: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     after: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class OAuthClient(CreatedAtMixin, Base):
+    """MCP client registered via OAuth Dynamic Client Registration (e.g. Claude, Claude Code)."""
+
+    __tablename__ = "oauth_clients"
+
+    client_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    # OAuthClientInformationFull as JSON (redirect_uris, client_name, auth method, ...).
+    info: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+
+class OAuthAuthorization(CreatedAtMixin, Base):
+    """An /authorize request. Pending until the user picks a store in the consent screen;
+    then it holds the (hashed) authorization code until the client exchanges it once."""
+
+    __tablename__ = "oauth_authorizations"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    client_id: Mapped[str] = mapped_column(
+        ForeignKey("oauth_clients.client_id", ondelete="CASCADE"), nullable=False
+    )
+    # redirect_uri, redirect_uri_provided_explicitly, state, code_challenge, scopes, resource.
+    params: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    connection_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("connections.id", ondelete="CASCADE")
+    )
+    code_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class OAuthToken(CreatedAtMixin, Base):
+    """Access and refresh tokens issued to an MCP client for one store. Only HMAC hashes are
+    stored; `grant_id` links the pair so revoking one revokes the other."""
+
+    __tablename__ = "oauth_tokens"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # 'access' | 'refresh'
+    grant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    client_id: Mapped[str] = mapped_column(
+        ForeignKey("oauth_clients.client_id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    connection_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("connections.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    scopes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    resource: Mapped[str | None] = mapped_column(Text)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

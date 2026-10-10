@@ -43,7 +43,7 @@ export function StoreList({ headerAction, emptyAction }: StoreListProps) {
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{copy.title}</h1>
           <p className="mt-1 max-w-xl text-slate-600">{copy.description}</p>
         </div>
-        {hasStores && <div className="sm:w-64">{headerAction}</div>}
+        {hasStores && <div className="flex flex-col gap-3 sm:flex-row sm:items-start">{headerAction}</div>}
       </header>
 
       <div className="mt-6">

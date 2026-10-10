@@ -19,7 +19,7 @@ export function StoreCard({ store, onDisconnected }: StoreCardProps) {
   const active = store.status === "active";
 
   return (
-    <GlassPanel className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[2fr_3fr] lg:gap-8">
+    <GlassPanel className="grid gap-6 p-5 sm:p-6 grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-8">
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core import crypto
 from src.core.api_keys import generate_api_key, hash_api_key, visible_prefix
-from src.db.models import ApiKey, AuditLog, Connection, User
+from src.db.models import ApiKey, AuditLog, Connection, OAuthToken, User
 
 PROVIDER_TIENDANUBE = "tiendanube"
 
@@ -157,8 +157,9 @@ async def get_user_connection(
 
 
 async def revoke_connection(session: AsyncSession, connection_id: uuid.UUID) -> None:
-    """Revoke the connection and its API keys, and delete the stored Tiendanube credentials:
-    a revoked connection never needs its token again (reinstalling creates a new one)."""
+    """Revoke the connection, its API keys and OAuth tokens, and delete the stored Tiendanube
+    credentials: a revoked connection never needs its token again (reinstalling creates a new
+    one)."""
     now = datetime.now(UTC)
     await session.execute(
         update(Connection)
@@ -168,6 +169,11 @@ async def revoke_connection(session: AsyncSession, connection_id: uuid.UUID) -> 
     await session.execute(
         update(ApiKey)
         .where(ApiKey.connection_id == connection_id, ApiKey.revoked_at.is_(None))
+        .values(revoked_at=now)
+    )
+    await session.execute(
+        update(OAuthToken)
+        .where(OAuthToken.connection_id == connection_id, OAuthToken.revoked_at.is_(None))
         .values(revoked_at=now)
     )
 

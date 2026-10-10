@@ -8,6 +8,7 @@ export const navigation = {
   cta: { label: "Conectar mi tienda", href: "/connect" },
   // Reemplaza al CTA cuando ya hay sesión.
   dashboard: { label: "Mis tiendas", href: "/dashboard" },
+  connectAi: { label: "Conectar mi IA", href: "/connect-ai" },
   signOut: { label: "Salir" },
 } as const;
 
@@ -18,6 +19,7 @@ export const footer = {
       title: "Producto",
       links: [
         { label: "Conectar mi tienda", href: "/connect" },
+        { label: "Conectar mi IA", href: "/connect-ai" },
       ],
     },
     {

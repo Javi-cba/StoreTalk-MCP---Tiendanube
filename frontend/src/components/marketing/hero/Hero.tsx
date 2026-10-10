@@ -6,7 +6,7 @@ import { HeroVisual } from "./HeroVisual";
 
 export function Hero() {
   return (
-    <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pt-2 pb-16 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:pt-4">
+    <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pt-2 pb-16 sm:px-6 grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:pt-4">
       <div>
         <GlassPanel className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-slate-700">
           <TiendanubeIcon size={18} className="text-brand" />

@@ -39,6 +39,7 @@ export const connectCopy = {
     noScopes: "Tiendanube no informó permisos para esta conexión.",
     visitStore: "Ver tienda",
     connectAnother: "Conectar otra tienda",
+    connectAi: "Conectar mi asistente de IA",
     myStores: "Ver mis tiendas",
     home: "Volver al inicio",
   },

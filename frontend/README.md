@@ -116,6 +116,14 @@ Clerk se usa **solo para quien quiere conectar su tienda y usar el MCP**. El vis
 3. La página llama a `POST /api/tiendanube/connect` con el `code` y redirige a `/dashboard`.
 4. El usuario genera una API key (se muestra **una sola vez**) y copia el snippet de config MCP (`lib/mcp/`) para su cliente de IA.
 
+## Conectar el asistente de IA (OAuth del MCP)
+
+El mismo flujo sirve para Claude, ChatGPT, Gemini, Cursor o cualquier cliente MCP con OAuth (ver `backend/README.md`, "MCP: OAuth 2.1").
+
+- **`/connect-ai`** (pública): guía paso a paso por asistente (pestañas Claude / Claude Code / ChatGPT / Otros) con la URL del conector para copiar (`NEXT_PUBLIC_MCP_URL`: ngrok en local, el dominio hosteado). Se llega desde "Mis tiendas", la pantalla de tienda conectada y el footer.
+- **`/authorize?request_id=...`**: consentimiento. El backend redirige acá desde su `/authorize`; el usuario elige qué tienda compartir y se lo devuelve al asistente (`redirect_url` con `code`). Sin sesión, manda al login y vuelve (no se protege en el middleware: la navegación es cross-site).
+- Componentes: `components/dashboard/authorize/` (consentimiento, mismo lenguaje visual que la conexión con Tiendanube: ícono del asistente ↔ mascota con la línea animada) y `components/dashboard/assistant-guide/`. Hook: `useAuthorizationRequest`. API: `lib/api/oauth.ts`.
+
 ## Comunicación con el backend
 
 El backend es **FastAPI** (ver `backend/README.md`). El front NO tiene backend propio: nada de Route Handlers ni Server Actions como proxy.
@@ -149,6 +157,7 @@ Regla obligatoria para toda pantalla nueva o rediseñada:
 - **Las pantallas de espera (cargando) son compactas**: panel chico centrado (`max-w-md`), no maximizado. Lo que llena la pantalla es el resultado (éxito/error).
 - **Los skeletons replican la estructura del componente final** (mismos paddings, alto de cada línea de texto, grillas): la altura no puede saltar cuando llegan los datos. Ej. `StoreCardSkeleton`.
 - **Poco margen debajo de la navbar** (`pt-4`): el contenido arranca pegado a ella, sin `py-12` de relleno.
+- **El contenido nunca puede ensanchar la página** (cero scroll horizontal, en ningún ancho): las grillas con columnas `fr` usan `minmax(0,…)` (`lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]`) y `grid-cols-1` en mobile; los hijos flex/grid con texto largo llevan `min-w-0`. URLs, comandos y código van en `CopyField` (una línea que se desliza), nunca sueltos.
 - Paneles angostos centrados solo para formularios cortos o mensajes de una línea (login, 404).
 - **Pantallas de espera: la mascota de carga** (`LoadingMascot` en `components/ui/loading-mascot/`), no spinners sueltos. Los spinners quedan solo dentro de botones.
 
