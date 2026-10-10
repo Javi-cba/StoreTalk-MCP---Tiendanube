@@ -9,7 +9,7 @@ Stack: **Next.js (App Router) + React + TypeScript + Tailwind CSS**. Landing pag
 - **tailwindcss** — estilos. Nada de CSS modules ni styled-components.
 - **@clerk/nextjs** — login, **solo** para el área privada (dashboard). La landing es pública.
 - **zod** — validación de datos que entran/salen de la API.
-- **lucide-react** — íconos.
+- **lucide-react** — íconos. Los que no existen en lucide (logos de marca como Tiendanube) van como componentes SVG en `components/ui/icons/`, con `fill="currentColor"` y prop `size`.
 - **clsx + tailwind-merge** — composición de clases (`cn()` en `lib/utils/`).
 
 ## Estructura de carpetas
@@ -28,11 +28,23 @@ src/
 │       ├── dashboard/api-keys/page.tsx # Crear / listar / revocar keys
 │       └── connect/callback/page.tsx   # Vuelta del OAuth de Tiendanube (?code=...)
 │
-├── components/
-│   ├── ui/                     # Primitivos genéricos: Button, Card, Badge, Modal...
-│   ├── marketing/              # Secciones de la landing: Hero, HowItWorks, ToolsGrid, Faq, Cta
-│   ├── dashboard/              # StoreCard, ApiKeyTable, UsageChart, McpConfigSnippet
-│   └── layout/                 # Navbar, Footer, Sidebar
+├── components/                 # Ver "Componentes: organización y reutilización"
+│   ├── ui/                     # Primitivos genéricos, sin lógica de negocio
+│   │   ├── button/             #   Button.tsx (+ variantes)
+│   │   ├── card/
+│   │   ├── modal/
+│   │   └── icons/              #   SVG propios como componentes (TiendanubeIcon...); el resto, lucide-react
+│   ├── layout/                 # Navbar, Footer, Sidebar
+│   ├── marketing/              # Secciones de la landing, una carpeta por sección
+│   │   ├── hero/
+│   │   ├── how-it-works/
+│   │   ├── tools-grid/         #   ToolsGrid.tsx + ToolCard.tsx (subcomponente local)
+│   │   └── faq/
+│   └── dashboard/              # Una carpeta por dominio
+│       ├── stores/             #   StoreCard, StoreList, ConnectStoreButton
+│       ├── api-keys/           #   ApiKeyTable, CreateApiKeyModal
+│       ├── usage/              #   UsageChart
+│       └── mcp-config/         #   McpConfigSnippet
 │
 ├── content/                    # ⭐ Copy de la landing como datos (tools, FAQ, pasos)
 │   ├── tools.ts                # Lista de tools MCP que se muestran en la landing
@@ -54,10 +66,36 @@ src/
 └── types/                      # Tipos TypeScript globales
 ```
 
+## Componentes: organización y reutilización
+
+El objetivo es que `components/` escale sin convertirse en una carpeta plana con decenas de archivos mezclados.
+
+**Dónde va cada componente**
+
+| Tipo | Carpeta | Regla |
+|------|---------|-------|
+| Primitivo genérico (Button, Input, Card, Modal, Badge) | `components/ui/` | No conoce el dominio, no llama a la API, solo recibe props. |
+| Estructura de página (Navbar, Footer, Sidebar) | `components/layout/` | Compartido entre layouts. |
+| Sección de la landing | `components/marketing/<seccion>/` | Una carpeta por sección. |
+| Componente de un dominio del dashboard | `components/dashboard/<dominio>/` | Una carpeta por dominio (`stores`, `api-keys`, `usage`...). |
+
+**Reglas**
+
+- **Una carpeta por componente o por dominio, nunca archivos sueltos** directamente en `components/marketing/` o `components/dashboard/`.
+- **Máximo ~8 archivos por carpeta.** Si se pasa, se divide en subcarpetas por responsabilidad.
+- **Un componente por archivo**, nombre en `PascalCase.tsx` igual al del componente; carpetas en `kebab-case`.
+- **Subcomponentes locales al lado de su padre** (ej. `ToolCard` dentro de `tools-grid/`). No se exportan fuera de su carpeta.
+- **Regla de promoción:** si un componente se usa en **2 o más dominios/secciones**, se generaliza (props en vez de datos del dominio) y se mueve a `components/ui/`. Nunca se importa un componente de `dashboard/stores/` desde `dashboard/api-keys/`.
+- **Antes de crear un componente, buscar en `components/ui/`.** No duplicar botones, cards o modales con estilos propios; extender el primitivo con variantes (`cn()` + prop `variant`/`size`).
+- **Dirección de imports:** `app/` → `components/<dominio>` → `components/ui` → `lib/`. Nunca al revés (`ui/` no importa de `dashboard/` ni de `marketing/`).
+- **Sin lógica de datos en `ui/`**: el fetch y el estado de servidor viven en hooks (`hooks/`) o en el Server Component de la página, y bajan por props.
+- **Componentes chicos:** si un archivo supera ~150 líneas, extraer subcomponentes o lógica a un hook.
+- Cada carpeta puede tener un `index.ts` que exporte solo su API pública; se importa con alias: `import { Button } from "@/components/ui/button"`.
+
 ## Landing page
 
 - Vive en el route group `(marketing)`: **estática (SSG), sin Clerk, sin llamadas al backend**. Rápida y buena para SEO.
-- Cada sección es un componente en `components/marketing/`; `page.tsx` solo las compone en orden.
+- Cada sección es una carpeta en `components/marketing/<seccion>/`; `page.tsx` solo las compone en orden.
 - El copy repetible (tools, FAQ, pasos) va en `content/` como arrays tipados, no hardcodeado en el JSX.
 - Los CTA ("Conectar mi tienda") llevan a `/sign-in` → `/dashboard`.
 - Metadata (title, description, Open Graph) con la Metadata API de Next en el layout/página.

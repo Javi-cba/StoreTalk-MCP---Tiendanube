@@ -1,0 +1,1 @@
+export { TiendanubeIcon } from "./TiendanubeIcon";
