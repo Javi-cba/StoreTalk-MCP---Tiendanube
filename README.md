@@ -49,8 +49,10 @@ Tus credenciales se guardan cifradas y podés desconectar tu tienda en cualquier
 - [ ] Reportes de ventas
 - [ ] Carga masiva desde planillas
 - [ ] Generación de descripciones y textos SEO con IA
-- [ ] Soporte para más plataformas
 
 ## 🤝 Estado
 
 Proyecto en etapa temprana. Si te interesa probarlo o tenés ideas, abrí un issue.
+
+
+![image](https://github.com/user-attachments/assets/e7bacae3-cb78-42a3-b0fe-9f1f624e1fcb)
