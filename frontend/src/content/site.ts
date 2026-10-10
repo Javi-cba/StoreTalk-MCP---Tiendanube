@@ -5,7 +5,10 @@ export const site = {
 
 export const navigation = {
   signIn: { label: "Ingresar", href: "/sign-in" },
-  cta: { label: "Conectar mi tienda", href: "/sign-in" },
+  cta: { label: "Conectar mi tienda", href: "/connect" },
+  // Reemplaza al CTA cuando ya hay sesión.
+  dashboard: { label: "Mis tiendas", href: "/dashboard" },
+  signOut: { label: "Salir" },
 } as const;
 
 export const footer = {
@@ -14,7 +17,7 @@ export const footer = {
     {
       title: "Producto",
       links: [
-        { label: "Conectar mi tienda", href: "/sign-in" },
+        { label: "Conectar mi tienda", href: "/connect" },
       ],
     },
     {

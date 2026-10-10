@@ -11,7 +11,7 @@ from src.core.errors import register_error_handlers
 from src.core.logging import configure_logging
 from src.database import engine
 from src.mcp_server.server import mcp
-from src.rest import tiendanube_oauth
+from src.rest import stores, tiendanube_oauth
 from src.services.tiendanube.client import close_http_client, create_http_client
 
 settings = get_settings()
@@ -42,6 +42,7 @@ app.add_middleware(
 
 api_router = APIRouter()
 api_router.include_router(tiendanube_oauth.router)
+api_router.include_router(stores.router)
 app.include_router(api_router, prefix="/api")
 
 

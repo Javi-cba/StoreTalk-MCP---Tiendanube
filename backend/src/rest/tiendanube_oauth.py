@@ -3,25 +3,32 @@
 Docs: https://tiendanube.github.io/api-documentation/authentication
 
   GET  /api/tiendanube/install-url -> authorize URL with a `state` signed for this Clerk user
+  GET  /api/tiendanube/callback    -> Redirect URL of the Partners panel (public https, e.g. an
+                                      ngrok tunnel to this backend). Only forwards `code`/`state`
+                                      to {FRONTEND_ORIGIN}/connect/callback (no exchange here)
   POST /api/tiendanube/connect     -> exchanges the `code` received by the frontend at
                                       /connect/callback and stores the connection + scopes
-The Partners panel "Redirect URL" must point to {FRONTEND_ORIGIN}/connect/callback.
+The Partners panel "Redirect URL" can be {PUBLIC_BASE_URL}/api/tiendanube/callback or
+{FRONTEND_ORIGIN}/connect/callback directly.
 """
 
 import logging
-import uuid
 from datetime import UTC, datetime
 from typing import Annotated
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.dependencies import CurrentSession
+from src.config import get_settings
 from src.core.errors import ApiError
 from src.core.oauth_state import create_state, verify_state
 from src.database import get_db
 from src.db import repositories
+from src.schemas.stores import StoreInfo, build_store_info
 from src.services.tiendanube.client import TiendanubeClient, get_http_client
 from src.services.tiendanube.errors import TiendanubeError
 from src.services.tiendanube.models import TNStore, localize
@@ -41,31 +48,29 @@ class ConnectRequest(BaseModel):
     state: str | None = Field(default=None, max_length=1024)
 
 
-class ConnectedStoreResponse(BaseModel):
-    connection_id: uuid.UUID
-    store_id: int
-    name: str | None
-    url: str | None
-    domain: str | None
-    email: str | None
-    logo_url: str | None
-    country: str | None
-    language: str | None
-    currency: str | None
-    plan: str | None
-    scopes: list[str]
-    connected_at: datetime
-
-
 @router.get("/install-url", response_model=InstallUrlResponse)
 async def install_url(session: CurrentSession) -> InstallUrlResponse:
     return InstallUrlResponse(url=build_authorize_url(create_state(session.user_id)))
 
 
-@router.post("/connect", response_model=ConnectedStoreResponse)
+@router.get("/callback", include_in_schema=False)
+async def oauth_callback(
+    code: Annotated[str | None, Query(max_length=512)] = None,
+    state: Annotated[str | None, Query(max_length=1024)] = None,
+) -> RedirectResponse:
+    """Public (no Clerk JWT): Tiendanube redirects the browser here. The code is exchanged by
+    POST /connect, which knows the logged-in user. Never log the code.
+    """
+    params = {k: v for k, v in {"code": code, "state": state}.items() if v}
+    query = f"?{urlencode(params)}" if params else ""
+    target = f"{get_settings().frontend_origin.rstrip('/')}/connect/callback{query}"
+    return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/connect", response_model=StoreInfo)
 async def connect(
     body: ConnectRequest, session: CurrentSession, db: Annotated[AsyncSession, Depends(get_db)]
-) -> ConnectedStoreResponse:
+) -> StoreInfo:
     if body.state is not None and not verify_state(body.state, session.user_id):
         raise ApiError(
             status.HTTP_400_BAD_REQUEST,
@@ -112,25 +117,10 @@ async def connect(
         },
     )
 
-    return ConnectedStoreResponse(
+    return build_store_info(
         connection_id=connection.id,
         store_id=token.store_id,
-        name=store_name,
-        url=store.url_with_protocol if store else None,
-        domain=store.original_domain if store else None,
-        email=store.email if store else None,
-        logo_url=_absolute_url(store.logo) if store else None,
-        country=store.country if store else None,
-        language=language,
-        currency=store.main_currency if store else None,
-        plan=store.plan_name if store else None,
+        store=store,
         scopes=scopes,
         connected_at=datetime.now(UTC),
     )
-
-
-def _absolute_url(url: str | None) -> str | None:
-    """Tiendanube returns the logo as a protocol-relative URL (//dcdn-us.mitiendanube.com/...)."""
-    if not url:
-        return None
-    return f"https:{url}" if url.startswith("//") else url

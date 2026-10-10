@@ -1,0 +1,1 @@
+export { AuthorCredit } from "./AuthorCredit";

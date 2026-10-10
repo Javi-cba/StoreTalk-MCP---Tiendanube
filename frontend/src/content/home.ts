@@ -21,8 +21,9 @@ export const hero = {
   titleHighlight: "conversando con tu IA",
   description:
     "Conectás tu Tiendanube una vez y después le pedís a tu asistente lo que necesitás, en lenguaje natural: precios, stock, pedidos, cupones y ventas.",
-  primaryCta: { label: "Conectar mi tienda", href: "/sign-in" },
-  secondaryCta: { label: "Ver qué puede hacer", href: "#ejemplos" },
+  primaryCta: { label: "Conectar mi tienda", href: "/connect" },
+  // Con sesión iniciada el CTA lleva a sus tiendas.
+  dashboardCta: { label: "Ir a mis tiendas", href: "/dashboard" },
   compatibility: "Compatible con Claude, ChatGPT, Cursor y cualquier cliente MCP",
 };
 

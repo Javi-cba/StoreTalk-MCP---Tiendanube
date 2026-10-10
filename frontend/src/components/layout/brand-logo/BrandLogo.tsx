@@ -1,12 +1,17 @@
 import Image from "next/image";
 import { site } from "@/content/site";
+import { mascotReplaySrc } from "@/lib/utils/mascot";
 
 type BrandLogoProps = {
   /** Reproduce la animación de entrada: la mascota cae y el nombre se revela. */
   intro?: boolean;
+  /** Cambiarlo vuelve a reproducir el webp (caída + saludo). */
+  replayKey?: number;
 };
 
-export function BrandLogo({ intro = false }: BrandLogoProps) {
+export function BrandLogo({ intro = false, replayKey }: BrandLogoProps) {
+  const src = mascotReplaySrc(replayKey);
+
   return (
     <span className="flex items-center gap-2">
       {/*
@@ -17,7 +22,8 @@ export function BrandLogo({ intro = false }: BrandLogoProps) {
       */}
       <span className="relative aspect-365/348 h-10 shrink-0">
         <Image
-          src="/brand/mascot-animated.webp"
+          key={src}
+          src={src}
           alt=""
           width={500}
           height={520}

@@ -20,11 +20,14 @@ El flujo arranca en el frontend con el usuario logueado en Clerk:
 
 1. Entrar a http://localhost:3000/connect (pide login con Clerk).
 2. "Conectar con Tiendanube" → `GET /api/tiendanube/install-url` (Bearer JWT de Clerk) → Tiendanube.
-3. Tiendanube vuelve a `http://localhost:3000/connect/callback?code=...&state=...`, que llama a
+3. Tiendanube vuelve a `https://<tu-ngrok>/api/tiendanube/callback`, que redirige (303) a
+   `http://localhost:3000/connect/callback?code=...&state=...`, que llama a
    `POST /api/tiendanube/connect` y muestra la tienda conectada y los scopes otorgados
    (se guardan en `connections.scopes`).
 
-Redirect URL en el panel de Partners: `http://localhost:3000/connect/callback`.
+Redirect URL en el panel de Partners: `https://<tu-ngrok>/api/tiendanube/callback` (túnel al backend en :8000).
+El backend reenvía `code`/`state` a `FRONTEND_ORIGIN/connect/callback` (http://localhost:3000). Si la Redirect URL
+apunta a una ruta que no existe, Tiendanube vuelve igual y se ve un 404.
 
 Clerk: el backend deriva issuer y JWKS de `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (o `CLERK_PUBLISHABLE_KEY`)
 del `.env`; tiene que ser la misma instancia que usa el frontend. `CLERK_ISSUER` / `CLERK_JWKS_URL`

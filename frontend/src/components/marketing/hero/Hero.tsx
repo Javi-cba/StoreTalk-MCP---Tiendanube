@@ -1,8 +1,7 @@
-import { ArrowRight } from "lucide-react";
-import { ButtonLink } from "@/components/ui/button";
 import { GlassPanel } from "@/components/ui/glass";
 import { TiendanubeIcon } from "@/components/ui/icons";
 import { hero } from "@/content/home";
+import { HeroPrimaryCta } from "./HeroPrimaryCta";
 import { HeroVisual } from "./HeroVisual";
 
 export function Hero() {
@@ -26,13 +25,7 @@ export function Hero() {
         <p className="mt-8 max-w-md text-lg leading-relaxed text-slate-600">{hero.description}</p>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <ButtonLink href={hero.primaryCta.href}>
-            {hero.primaryCta.label}
-            <ArrowRight className="size-4" />
-          </ButtonLink>
-          <ButtonLink href={hero.secondaryCta.href} variant="glass">
-            {hero.secondaryCta.label}
-          </ButtonLink>
+          <HeroPrimaryCta />
         </div>
 
         <p className="mt-6 text-sm text-slate-500">{hero.compatibility}</p>

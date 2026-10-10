@@ -5,3 +5,5 @@ export { CursorIcon } from "./CursorIcon";
 export { WindsurfIcon } from "./WindsurfIcon";
 export { GeminiIcon } from "./GeminiIcon";
 export { LinkedinIcon } from "./LinkedinIcon";
+export { GoogleIcon } from "./GoogleIcon";
+export { AppleIcon } from "./AppleIcon";

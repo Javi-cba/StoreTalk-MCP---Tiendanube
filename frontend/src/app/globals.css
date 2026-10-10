@@ -63,6 +63,11 @@
   El filtro va por variable: escrito literal, el minificador deja solo -webkit-backdrop-filter,
   que Chrome ya no soporta, y el blur desaparece.
 */
+/* Alto visible debajo de la navbar: las pantallas lo llenan y el footer queda debajo del pliegue. */
+@utility screen-fill {
+  min-height: calc(100dvh - var(--navbar-height));
+}
+
 @utility glass {
   background: linear-gradient(135deg, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.38));
   --glass-filter: blur(20px) saturate(180%);
@@ -147,6 +152,17 @@
   --animate-intro-dock: intro-dock 700ms cubic-bezier(0.65, 0, 0.35, 1) 2100ms both;
   --animate-intro-content: intro-content 600ms ease-out 2700ms both;
   --animate-intro-island: intro-island 600ms cubic-bezier(0.34, 1.56, 0.64, 1) 2800ms both;
+  /* Recuadro del login: aparece recién cuando el logo terminó de acomodarse (2.8 s). */
+  --animate-intro-card: intro-card 500ms ease-out 2800ms both;
+
+  @keyframes intro-card {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 
   /* Navbar tipo "dynamic island": la píldora se estira desde el centro con un rebote. */
   @keyframes intro-island {
@@ -201,4 +217,32 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), sans-serif;
+}
+
+/* Pantallas de conexión: entrada suave de las tarjetas y "pop" del check de éxito. */
+@theme {
+  --animate-rise-in: rise-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pop-in: pop-in 550ms cubic-bezier(0.34, 1.56, 0.64, 1) 150ms both;
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }

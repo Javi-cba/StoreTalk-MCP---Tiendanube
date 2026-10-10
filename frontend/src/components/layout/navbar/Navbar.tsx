@@ -1,19 +1,18 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import type { ReactNode } from "react";
 import { BrandLogo } from "@/components/layout/brand-logo";
-import { ButtonLink } from "@/components/ui/button";
-import { navigation } from "@/content/site";
 import { cn } from "@/lib/utils/cn";
-
-const navLinkClass =
-  "inline-flex h-10 items-center rounded-full px-4 text-sm font-medium text-slate-600 transition-colors hover:bg-white/70 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+import { LogoOriginTracker } from "./LogoOriginTracker";
+import { NavbarActions } from "./NavbarActions";
 
 type NavbarProps = {
   /** Animación de entrada (logo grande que sube al navbar). Se apaga en páginas secundarias como la 404. */
   intro?: boolean;
+  /** Reemplaza los links de la derecha (ej. el menú de cuenta en el área privada). */
+  actions?: ReactNode;
 };
 
-export function Navbar({ intro = true }: NavbarProps) {
+export function Navbar({ intro = true, actions }: NavbarProps) {
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-50 flex h-(--navbar-height) items-center px-4 sm:px-6">
       <nav className="relative isolate mx-auto grid h-16 w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center px-3">
@@ -35,24 +34,24 @@ export function Navbar({ intro = true }: NavbarProps) {
           aria-label="Inicio"
           className={cn("pointer-events-auto col-start-2", intro && "animate-intro-dock motion-reduce:animate-none")}
         >
-          <BrandLogo intro={intro} />
+          {/* data-brand-logo: el login mide este nodo para animar el logo desde acá. */}
+          <span data-brand-logo className="block">
+            <BrandLogo intro={intro} />
+          </span>
         </Link>
 
         <div
           className={cn(
-            "pointer-events-auto hidden items-center justify-self-end gap-1 sm:flex",
+            "pointer-events-auto items-center justify-self-end gap-1",
+            // El menú de cuenta se ve siempre; los CTA de la landing, desde sm.
+            actions ? "flex" : "hidden sm:flex",
             intro && "animate-intro-content motion-reduce:animate-none",
           )}
         >
-          <Link href={navigation.signIn.href} className={cn(navLinkClass, "hidden lg:inline-flex")}>
-            {navigation.signIn.label}
-          </Link>
-          <ButtonLink href={navigation.cta.href} className="h-10 whitespace-nowrap px-5">
-            {navigation.cta.label}
-            <ArrowRight className="size-4" />
-          </ButtonLink>
+          {actions ?? <NavbarActions />}
         </div>
       </nav>
+      <LogoOriginTracker />
     </header>
   );
 }

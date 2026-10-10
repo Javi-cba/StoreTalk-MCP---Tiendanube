@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Globe } from "lucide-react";
+import { AuthorCredit } from "@/components/layout/author-credit";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { LinkedinIcon } from "@/components/ui/icons";
 import { footer, site } from "@/content/site";
@@ -44,12 +45,7 @@ export function Footer() {
         <div className="flex flex-col gap-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between md:col-span-2">
           <p>© {site.name}</p>
           <p className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <span className="mr-1 text-sm text-slate-600">
-              {footer.author.prefix}{" "}
-              <span className="bg-linear-to-r from-blue-600 to-sky-500 bg-clip-text text-base font-semibold text-transparent">
-                {footer.author.name}
-              </span>
-            </span>
+            <AuthorCredit className="mr-1" />
             <a href={footer.author.portfolio.href} target="_blank" rel="noopener noreferrer" className={authorLinkClass}>
               <Globe className="size-4" />
               {footer.author.portfolio.label}

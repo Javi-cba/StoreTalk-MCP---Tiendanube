@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -119,6 +119,22 @@ async def resolve_api_key(session: AsyncSession, plaintext: str) -> ResolvedApiK
     return ResolvedApiKey(api_key_id=found[0], user_id=found[1], connection_id=found[2])
 
 
+async def list_active_connections(
+    session: AsyncSession, user_id: uuid.UUID, *, limit: int, offset: int
+) -> tuple[list[Connection], int]:
+    """One page of the stores connected by the user (newest first) plus the total count."""
+    active = (Connection.user_id == user_id, Connection.revoked_at.is_(None))
+    total = await session.scalar(select(func.count()).select_from(Connection).where(*active))
+    result = await session.scalars(
+        select(Connection)
+        .where(*active)
+        .order_by(Connection.created_at.desc(), Connection.id)
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(result), total or 0
+
+
 async def get_active_connection(
     session: AsyncSession, connection_id: uuid.UUID
 ) -> Connection | None:
@@ -127,12 +143,27 @@ async def get_active_connection(
     )
 
 
+async def get_user_connection(
+    session: AsyncSession, user_id: uuid.UUID, connection_id: uuid.UUID
+) -> Connection | None:
+    """Active connection only if it belongs to this user (never trust the id alone)."""
+    return await session.scalar(
+        select(Connection).where(
+            Connection.id == connection_id,
+            Connection.user_id == user_id,
+            Connection.revoked_at.is_(None),
+        )
+    )
+
+
 async def revoke_connection(session: AsyncSession, connection_id: uuid.UUID) -> None:
+    """Revoke the connection and its API keys, and delete the stored Tiendanube credentials:
+    a revoked connection never needs its token again (reinstalling creates a new one)."""
     now = datetime.now(UTC)
     await session.execute(
         update(Connection)
         .where(Connection.id == connection_id, Connection.revoked_at.is_(None))
-        .values(revoked_at=now)
+        .values(revoked_at=now, access_token_encrypted="")
     )
     await session.execute(
         update(ApiKey)

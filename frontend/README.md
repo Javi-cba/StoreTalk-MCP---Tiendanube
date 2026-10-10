@@ -32,7 +32,7 @@ src/
 │   ├── ui/                     # Primitivos genéricos, sin lógica de negocio
 │   │   ├── button/             #   Button.tsx (+ variantes)
 │   │   ├── card/
-│   │   ├── modal/
+│   │   ├── modal/              #   ConfirmDialog (<dialog> nativo; tone="danger" para acciones destructivas)
 │   │   └── icons/              #   SVG propios como componentes (TiendanubeIcon...); el resto, lucide-react
 │   ├── layout/                 # Navbar, Footer, Sidebar
 │   ├── marketing/              # Secciones de la landing, una carpeta por sección
@@ -62,7 +62,7 @@ src/
 │   └── utils/                  # cn(), formatos de fecha/número
 │
 ├── hooks/                      # Custom hooks (useApiKeys, useStores...)
-├── middleware.ts               # clerkMiddleware: protege solo /dashboard y /connect
+├── proxy.ts                    # clerkMiddleware: protege /dashboard(.*) y /connect (no /connect/callback)
 └── types/                      # Tipos TypeScript globales
 ```
 
@@ -105,13 +105,14 @@ El objetivo es que `components/` escale sin convertirse en una carpeta plana con
 Clerk se usa **solo para quien quiere conectar su tienda y usar el MCP**. El visitante de la landing nunca pasa por Clerk.
 
 - `ClerkProvider` envuelve solo el layout de `(app)`, no la raíz.
-- `middleware.ts` usa `clerkMiddleware` + `createRouteMatcher` para proteger `/dashboard(.*)` y `/connect(.*)`. Todo lo demás es público.
+- `proxy.ts` usa `clerkMiddleware` + `createRouteMatcher` para proteger `/dashboard(.*)` y `/connect`. Todo lo demás es público.
+- **`/connect/callback` queda fuera del middleware a propósito:** llega desde Tiendanube (navegación cross-site) y en esa request el middleware puede no ver la sesión. `useConnectCallback` espera a Clerk en el cliente; si no hay sesión, hace `redirectToSignIn` y vuelve a la misma URL con el `code` (dura 5 minutos).
 - Clerk emite un **JWT** que se envía al backend en `Authorization: Bearer <token>`; FastAPI lo valida contra el JWKS.
 
 ## Flujo de conexión de tienda
 
 1. En el dashboard, el usuario toca "Conectar tienda" → `GET /api/tiendanube/install-url` → redirect a Tiendanube.
-2. Tiendanube vuelve a `/connect/callback?code=...`.
+2. Tiendanube vuelve a la Redirect URL del panel (`{API}/api/tiendanube/callback`, por ngrok en dev), que reenvía a `/connect/callback?code=...&state=...`.
 3. La página llama a `POST /api/tiendanube/connect` con el `code` y redirige a `/dashboard`.
 4. El usuario genera una API key (se muestra **una sola vez**) y copia el snippet de config MCP (`lib/mcp/`) para su cliente de IA.
 
@@ -137,6 +138,20 @@ NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard
 NEXT_PUBLIC_MCP_URL=http://localhost:8000/mcp
 ```
 
+## Layout de pantallas (sin espacios en blanco)
+
+Regla obligatoria para toda pantalla nueva o rediseñada:
+
+- **Navbar y footer en todas las páginas**, excepto login y registro (`/sign-in`, `/sign-up`).
+- **Una pantalla llena el alto visible debajo de la navbar** con la utilidad `screen-fill` (`100dvh - --navbar-height`); el footer queda debajo del pliegue.
+- **Ancho de la navbar (`max-w-6xl`)** para las pantallas con contenido (resultados, detalles, dashboards). Nada de un panel angosto (`max-w-lg`/`max-w-2xl`) centrado con aire vacío a los costados.
+- **Si hay mucho contenido, se reparte en columnas** (ej. `lg:grid-cols-[2fr_3fr]`: mensaje + acciones a la izquierda, datos a la derecha) para que entre en la pantalla sin scroll. Nunca una columna angosta que sigue hacia abajo por debajo del pliegue.
+- **Las pantallas de espera (cargando) son compactas**: panel chico centrado (`max-w-md`), no maximizado. Lo que llena la pantalla es el resultado (éxito/error).
+- **Los skeletons replican la estructura del componente final** (mismos paddings, alto de cada línea de texto, grillas): la altura no puede saltar cuando llegan los datos. Ej. `StoreCardSkeleton`.
+- **Poco margen debajo de la navbar** (`pt-4`): el contenido arranca pegado a ella, sin `py-12` de relleno.
+- Paneles angostos centrados solo para formularios cortos o mensajes de una línea (login, 404).
+- **Pantallas de espera: la mascota de carga** (`LoadingMascot` en `components/ui/loading-mascot/`), no spinners sueltos. Los spinners quedan solo dentro de botones.
+
 ## Reglas
 
 - **`app/` solo orquesta.** Las páginas importan de `components/`, `lib/` y `content/`; sin lógica pesada.
@@ -144,6 +159,7 @@ NEXT_PUBLIC_MCP_URL=http://localhost:8000/mcp
 - **La landing no depende de Clerk ni del backend.** Si una sección necesita datos, salen de `content/`.
 - **Server Components por defecto.** `"use client"` solo donde hay interactividad (forms, copiar al portapapeles, modales).
 - **Toda llamada al backend pasa por `lib/api/`** y va directo a FastAPI.
+- **Listados paginados en el backend** (`page` / `per_page`, ej. `/api/stores` de a 3): el front pide una página por vez y usa `Pagination` (`components/ui/pagination/`, íconos + números con "…"). Al cambiar de página se atenúa la anterior hasta que llega la nueva (sin skeleton, para que no salte la altura).
 - **Tipos compartidos con la API en `lib/schemas/` (zod)**, derivados con `z.infer`.
 - **Nunca loguear ni persistir API keys** en el cliente (ni `localStorage`). Se muestran una vez y listo.
 - **Tailwind para todo el estilo**; variantes de componentes con `cn()`, sin clases inline gigantes repetidas.
