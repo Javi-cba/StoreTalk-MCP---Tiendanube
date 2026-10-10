@@ -4,6 +4,7 @@ Docs: https://tiendanube.github.io/api-documentation/authentication
 The redirect URL is configured only in the Partners panel (not per request).
 """
 
+import re
 from urllib.parse import urlencode
 
 import httpx
@@ -20,6 +21,11 @@ class TokenResponse(BaseModel):
     token_type: str
     scope: str = ""
     store_id: int = Field(validation_alias="user_id")
+
+
+def parse_scopes(scope: str) -> list[str]:
+    """Tiendanube returns the granted scopes as one string ("read_products,write_orders")."""
+    return sorted({s for s in re.split(r"[,\s]+", scope) if s})
 
 
 def build_authorize_url(state: str) -> str:

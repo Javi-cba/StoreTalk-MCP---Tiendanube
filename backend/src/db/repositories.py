@@ -1,13 +1,15 @@
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core import crypto
 from src.core.api_keys import generate_api_key, hash_api_key, visible_prefix
-from src.db.models import ApiKey, Connection, User
+from src.db.models import ApiKey, AuditLog, Connection, User
 
 PROVIDER_TIENDANUBE = "tiendanube"
 
@@ -16,11 +18,17 @@ async def get_or_create_user(
     session: AsyncSession, clerk_user_id: str, email: str | None = None
 ) -> User:
     user = await session.scalar(select(User).where(User.clerk_user_id == clerk_user_id))
-    if user is None:
-        user = User(clerk_user_id=clerk_user_id, email=email)
-        session.add(user)
-        await session.flush()
-    return user
+    if user is not None:
+        return user
+    # ON CONFLICT: two first requests of the same Clerk user can race here.
+    await session.execute(
+        insert(User)
+        .values(id=uuid.uuid4(), clerk_user_id=clerk_user_id, email=email)
+        .on_conflict_do_nothing(index_elements=[User.clerk_user_id])
+    )
+    created = await session.scalar(select(User).where(User.clerk_user_id == clerk_user_id))
+    assert created is not None
+    return created
 
 
 async def upsert_tiendanube_connection(
@@ -33,7 +41,11 @@ async def upsert_tiendanube_connection(
     store_name: str | None,
     store_language: str | None,
 ) -> Connection:
-    """One active connection per store_id. Reinstalling refreshes the token in place."""
+    """One active connection per store_id. Reinstalling refreshes the token in place.
+
+    If the store was connected by another user, that connection (and its API keys) is revoked
+    and a new one is created: whoever just authorized as store admin becomes the owner.
+    """
     connection = await session.scalar(
         select(Connection).where(
             Connection.provider == PROVIDER_TIENDANUBE,
@@ -41,6 +53,9 @@ async def upsert_tiendanube_connection(
             Connection.revoked_at.is_(None),
         )
     )
+    if connection is not None and connection.user_id != user_id:
+        await revoke_connection(session, connection.id)
+        connection = None
     encrypted = crypto.encrypt(access_token)
     if connection is None:
         connection = Connection(
@@ -55,7 +70,6 @@ async def upsert_tiendanube_connection(
         )
         session.add(connection)
     else:
-        connection.user_id = user_id
         connection.access_token_encrypted = encrypted
         connection.key_version = crypto.CURRENT_KEY_VERSION
         connection.scopes = scopes
@@ -124,4 +138,28 @@ async def revoke_connection(session: AsyncSession, connection_id: uuid.UUID) -> 
         update(ApiKey)
         .where(ApiKey.connection_id == connection_id, ApiKey.revoked_at.is_(None))
         .values(revoked_at=now)
+    )
+
+
+async def record_audit(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID | None,
+    connection_id: uuid.UUID,
+    tool_name: str,
+    entity_type: str,
+    entity_id: str,
+    before: dict[str, Any] | None,
+    after: dict[str, Any] | None,
+) -> None:
+    session.add(
+        AuditLog(
+            user_id=user_id,
+            connection_id=connection_id,
+            tool_name=tool_name,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            before=before,
+            after=after,
+        )
     )

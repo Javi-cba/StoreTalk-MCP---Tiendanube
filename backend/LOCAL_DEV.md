@@ -16,12 +16,19 @@ Chequeo: http://localhost:8000/health → `{"status":"ok","db":"up"}`
 
 ## Conectar una tienda (OAuth Tiendanube)
 
-Con el admin de la tienda de prueba abierto, entrar a:
+El flujo arranca en el frontend con el usuario logueado en Clerk:
 
-http://localhost:8000/api/tiendanube/install
+1. Entrar a http://localhost:3000/connect (pide login con Clerk).
+2. "Conectar con Tiendanube" → `GET /api/tiendanube/install-url` (Bearer JWT de Clerk) → Tiendanube.
+3. Tiendanube vuelve a `http://localhost:3000/connect/callback?code=...&state=...`, que llama a
+   `POST /api/tiendanube/connect` y muestra la tienda conectada y los scopes otorgados
+   (se guardan en `connections.scopes`).
 
-Al aceptar los permisos se muestra un JSON con la `api_key` (una sola vez).
-Redirect URL en el panel de Partners: `http://localhost:8000/api/tiendanube/callback`.
+Redirect URL en el panel de Partners: `http://localhost:3000/connect/callback`.
+
+Clerk: el backend deriva issuer y JWKS de `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (o `CLERK_PUBLISHABLE_KEY`)
+del `.env`; tiene que ser la misma instancia que usa el frontend. `CLERK_ISSUER` / `CLERK_JWKS_URL`
+lo pisan si hace falta.
 
 ## API keys de MCP (`stk_...`)
 
@@ -76,10 +83,23 @@ Transport `Streamable HTTP` → URL `http://localhost:8000/mcp` → Bearer `stk_
 ## Calidad
 
 ```bash
-uv run pytest
+uv run pytest                              # todo
+uv run pytest tests/test_mcp/products      # una entidad
 uv run ruff check . && uv run ruff format .
-uv run mypy src
+uv run mypy src tests
 ```
+
+Los tests de tools usan el harness de `tests/test_mcp/conftest.py` (sin DB ni Tiendanube reales):
+`harness.call(tool, args)` / `harness.call_error(tool, args)`, `harness.set_scopes("read_products,...")`
+para simular permisos faltantes, y `harness.audits` con lo que se hubiera escrito en `audit_log`.
+Las respuestas de Tiendanube se mockean con `respx` sobre `BASE_URL`.
+
+## Probar permisos (scopes) faltantes
+
+Los scopes otorgados se guardan en `connections.scopes`. Para ver el error que recibe el usuario cuando
+falta uno, quitá el scope de esa columna en la tienda de prueba (p. ej. dejar solo `read_products`) y
+llamá una tool de escritura: responde con el scope literal que hay que agregar, sin desconectar la tienda.
+La caché de API keys dura 60 s; el cambio de scopes se lee en cada llamada.
 
 ## Nueva migración
 

@@ -1,3 +1,4 @@
+import base64
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -19,6 +20,16 @@ def _to_psycopg_url(url: str) -> str:
         if url.startswith(prefix):
             return "postgresql+psycopg://" + url[len(prefix) :]
     return url
+
+
+def _issuer_from_publishable_key(key: str) -> str | None:
+    """pk_(test|live)_<base64("<frontend-api-host>$")> -> https://<frontend-api-host>."""
+    encoded = key.split("_", 2)[-1]
+    try:
+        host = base64.b64decode(encoded + "=" * (-len(encoded) % 4)).decode().rstrip("$")
+    except (ValueError, UnicodeDecodeError):
+        return None
+    return f"https://{host}" if host else None
 
 
 class Settings(BaseSettings):
@@ -49,6 +60,16 @@ class Settings(BaseSettings):
     tiendanube_api_version: str = "2025-03"
     tiendanube_auth_base: str = "https://www.tiendanube.com"
 
+    # Clerk. Issuer and JWKS URL are derived from the publishable key unless set explicitly.
+    clerk_publishable_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("CLERK_PUBLISHABLE_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
+    )
+    clerk_issuer: str | None = None
+    clerk_jwks_url: str | None = None
+    # Comma-separated origins allowed in the `azp` claim. Defaults to FRONTEND_ORIGIN.
+    clerk_authorized_parties: str | None = None
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def async_database_url(self) -> str:
@@ -61,6 +82,26 @@ class Settings(BaseSettings):
         """Direct (non-pooler) URL used by Alembic. Falls back to stripping '-pooler'."""
         url = self.database_url_direct or self.database_url.replace("-pooler.", ".")
         return _to_psycopg_url(url)
+
+    @property
+    def clerk_issuer_url(self) -> str | None:
+        if self.clerk_issuer:
+            return self.clerk_issuer.rstrip("/")
+        if self.clerk_publishable_key:
+            return _issuer_from_publishable_key(self.clerk_publishable_key)
+        return None
+
+    @property
+    def clerk_jwks_endpoint(self) -> str | None:
+        if self.clerk_jwks_url:
+            return self.clerk_jwks_url
+        issuer = self.clerk_issuer_url
+        return f"{issuer}/.well-known/jwks.json" if issuer else None
+
+    @property
+    def clerk_allowed_parties(self) -> frozenset[str]:
+        raw = self.clerk_authorized_parties or self.frontend_origin
+        return frozenset(origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip())
 
     @property
     def is_development(self) -> bool:

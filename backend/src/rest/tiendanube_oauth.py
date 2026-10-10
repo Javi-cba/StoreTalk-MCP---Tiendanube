@@ -1,100 +1,136 @@
-"""Tiendanube app installation.
+"""Tiendanube app installation, started by a user logged in with Clerk.
 
 Docs: https://tiendanube.github.io/api-documentation/authentication
 
-Until Clerk + the frontend exist, the backend handles the redirect itself:
-  GET /api/tiendanube/install   -> 302 to Tiendanube's authorize page (signed `state`)
-  GET /api/tiendanube/callback  -> exchanges `code`, stores the connection and returns a
-                                   first MCP API key (development only; shown once).
-The Partners panel "Redirect URL" must point to {PUBLIC_BASE_URL}/api/tiendanube/callback.
+  GET  /api/tiendanube/install-url -> authorize URL with a `state` signed for this Clerk user
+  POST /api/tiendanube/connect     -> exchanges the `code` received by the frontend at
+                                      /connect/callback and stores the connection + scopes
+The Partners panel "Redirect URL" must point to {FRONTEND_ORIGIN}/connect/callback.
 """
 
 import logging
+import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.config import get_settings
+from src.auth.dependencies import CurrentSession
+from src.core.errors import ApiError
 from src.core.oauth_state import create_state, verify_state
 from src.database import get_db
 from src.db import repositories
 from src.services.tiendanube.client import TiendanubeClient, get_http_client
 from src.services.tiendanube.errors import TiendanubeError
-from src.services.tiendanube.models import localize
-from src.services.tiendanube.oauth import build_authorize_url, exchange_code
+from src.services.tiendanube.models import TNStore, localize
+from src.services.tiendanube.oauth import build_authorize_url, exchange_code, parse_scopes
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/tiendanube", tags=["tiendanube"])
-
-# Placeholder owner until Clerk is wired; replaced by the JWT user in POST /connect.
-DEV_CLERK_USER_ID = "dev_local"
 
 
 class InstallUrlResponse(BaseModel):
     url: str
 
 
-class DevConnectResponse(BaseModel):
-    connection_id: str
+class ConnectRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=512)
+    # Installs started from the Tiendanube app store arrive without our state.
+    state: str | None = Field(default=None, max_length=1024)
+
+
+class ConnectedStoreResponse(BaseModel):
+    connection_id: uuid.UUID
     store_id: int
-    store_name: str | None
-    scopes: str
-    api_key: str
-    api_key_note: str = "Shown only once. Use it as 'Authorization: Bearer <api_key>' on /mcp."
+    name: str | None
+    url: str | None
+    domain: str | None
+    email: str | None
+    logo_url: str | None
+    country: str | None
+    language: str | None
+    currency: str | None
+    plan: str | None
+    scopes: list[str]
+    connected_at: datetime
 
 
 @router.get("/install-url", response_model=InstallUrlResponse)
-async def install_url() -> InstallUrlResponse:
-    return InstallUrlResponse(url=build_authorize_url(create_state()))
+async def install_url(session: CurrentSession) -> InstallUrlResponse:
+    return InstallUrlResponse(url=build_authorize_url(create_state(session.user_id)))
 
 
-@router.get("/install", include_in_schema=False)
-async def install() -> RedirectResponse:
-    return RedirectResponse(build_authorize_url(create_state()))
+@router.post("/connect", response_model=ConnectedStoreResponse)
+async def connect(
+    body: ConnectRequest, session: CurrentSession, db: Annotated[AsyncSession, Depends(get_db)]
+) -> ConnectedStoreResponse:
+    if body.state is not None and not verify_state(body.state, session.user_id):
+        raise ApiError(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_state",
+            "El enlace de conexión venció o fue iniciado con otra cuenta. "
+            "Volvé a conectar tu tienda desde StoreTalk.",
+        )
 
-
-@router.get("/callback", response_model=DevConnectResponse)
-async def callback(
-    code: str, db: Annotated[AsyncSession, Depends(get_db)], state: str | None = None
-) -> DevConnectResponse:
-    settings = get_settings()
-    if not settings.is_development:
-        # In production the frontend receives the code and calls POST /connect with a JWT.
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
-    # Installs started from the Tiendanube app store arrive without our state.
-    if state is not None and not verify_state(state):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired state")
-
+    # Tiendanube calls first; the DB session is only used afterwards (short sessions).
     http = get_http_client()
     try:
-        token = await exchange_code(http, code)
-        store = await TiendanubeClient(http, token.store_id, token.access_token).get_store()
+        token = await exchange_code(http, body.code)
     except TiendanubeError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, exc.message) from exc
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "authorization_failed", exc.message) from exc
 
-    user = await repositories.get_or_create_user(db, DEV_CLERK_USER_ID)
+    store: TNStore | None = None
+    try:
+        store = await TiendanubeClient(http, token.store_id, token.access_token).get_store()
+    except TiendanubeError:
+        # The code is single-use: keep the connection even if the store info is unavailable.
+        logger.warning("store info unavailable after install", extra={"store_id": token.store_id})
+
+    scopes = parse_scopes(token.scope)
+    language = store.main_language if store else None
+    store_name = localize(store.name, language) if store else None
+
+    user = await repositories.get_or_create_user(db, session.user_id)
     connection = await repositories.upsert_tiendanube_connection(
         db,
         user_id=user.id,
         store_id=token.store_id,
         access_token=token.access_token,
-        scopes=token.scope,
-        store_name=localize(store.name, store.main_language),
-        store_language=store.main_language,
-    )
-    _, plaintext = await repositories.create_api_key(
-        db, user_id=user.id, connection_id=connection.id, name="dev callback"
+        scopes=",".join(scopes),
+        store_name=store_name,
+        store_language=language,
     )
     await db.commit()
-    logger.info("store connected", extra={"store_id": token.store_id})
-
-    return DevConnectResponse(
-        connection_id=str(connection.id),
-        store_id=connection.store_id,
-        store_name=connection.store_name,
-        scopes=connection.scopes,
-        api_key=plaintext,
+    logger.info(
+        "store connected",
+        extra={
+            "store_id": token.store_id,
+            "user_id": str(user.id),
+            "connection_id": str(connection.id),
+        },
     )
+
+    return ConnectedStoreResponse(
+        connection_id=connection.id,
+        store_id=token.store_id,
+        name=store_name,
+        url=store.url_with_protocol if store else None,
+        domain=store.original_domain if store else None,
+        email=store.email if store else None,
+        logo_url=_absolute_url(store.logo) if store else None,
+        country=store.country if store else None,
+        language=language,
+        currency=store.main_currency if store else None,
+        plan=store.plan_name if store else None,
+        scopes=scopes,
+        connected_at=datetime.now(UTC),
+    )
+
+
+def _absolute_url(url: str | None) -> str | None:
+    """Tiendanube returns the logo as a protocol-relative URL (//dcdn-us.mitiendanube.com/...)."""
+    if not url:
+        return None
+    return f"https:{url}" if url.startswith("//") else url

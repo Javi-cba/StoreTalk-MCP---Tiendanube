@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, Response
 from sqlalchemy import text
 
 from src.config import get_settings
+from src.core.errors import register_error_handlers
 from src.core.logging import configure_logging
 from src.database import engine
 from src.mcp_server.server import mcp
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="StoreTalk API", lifespan=lifespan)
+register_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_origin],

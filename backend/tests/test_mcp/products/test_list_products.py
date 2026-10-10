@@ -1,20 +1,10 @@
-import uuid
-from collections.abc import AsyncIterator
 from typing import Any
 
-import httpx
-import pytest
 import respx
-from fastmcp import Client, FastMCP
 
-from src.mcp_server import context as context_module
-from src.mcp_server.context import StoreContext
-from src.mcp_server.server import create_mcp
-from src.mcp_server.tools import products as products_module
-from src.services.tiendanube.client import TiendanubeClient
+from tests.test_mcp.conftest import BASE_URL, Harness
 
-STORE_ID = 999
-PRODUCTS_URL = f"https://api.tiendanube.com/2025-03/{STORE_ID}/products"
+PRODUCTS_URL = f"{BASE_URL}/products"
 
 PRODUCT = {
     "id": 1,
@@ -38,40 +28,19 @@ PRODUCT = {
 }
 
 
-@pytest.fixture
-async def mcp(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[FastMCP]:
-    async with httpx.AsyncClient() as http:
-        store_ctx = StoreContext(
-            connection_id=uuid.uuid4(),
-            store_id=STORE_ID,
-            language="es",
-            client=TiendanubeClient(http, STORE_ID, "token"),
-        )
-
-        async def fake_context() -> StoreContext:
-            return store_ctx
-
-        monkeypatch.setattr(products_module, "get_store_context", fake_context)
-        monkeypatch.setattr(context_module, "get_store_context", fake_context)
-        yield create_mcp(auth=None)
-
-
-async def _call(mcp: FastMCP, args: dict[str, Any]) -> dict[str, Any]:
-    async with Client(mcp) as client:
-        result = await client.call_tool("list_products", args)
-    assert result.structured_content is not None
-    return result.structured_content
+async def _call(harness: Harness, args: dict[str, Any]) -> dict[str, Any]:
+    return await harness.call("list_products", args)
 
 
 @respx.mock
-async def test_list_products_without_filters(mcp: FastMCP) -> None:
+async def test_list_products_without_filters(harness: Harness) -> None:
     route = respx.get(PRODUCTS_URL).respond(
         200,
         json=[PRODUCT],
         headers={"x-total-count": "41", "Link": f'<{PRODUCTS_URL}?page=2>; rel="next"'},
     )
 
-    data = await _call(mcp, {})
+    data = await _call(harness, {})
 
     params = route.calls.last.request.url.params
     assert params["page"] == "1"
@@ -89,11 +58,11 @@ async def test_list_products_without_filters(mcp: FastMCP) -> None:
 
 
 @respx.mock
-async def test_list_products_with_filters_are_sent_to_tiendanube(mcp: FastMCP) -> None:
+async def test_list_products_with_filters_are_sent_to_tiendanube(harness: Harness) -> None:
     route = respx.get(PRODUCTS_URL).respond(200, json=[], headers={"x-total-count": "0"})
 
     data = await _call(
-        mcp, {"q": "remera", "published": False, "max_stock": 0, "sort_by": "best-selling"}
+        harness, {"q": "remera", "published": False, "max_stock": 0, "sort_by": "best-selling"}
     )
 
     params = route.calls.last.request.url.params
@@ -106,20 +75,20 @@ async def test_list_products_with_filters_are_sent_to_tiendanube(mcp: FastMCP) -
 
 
 @respx.mock
-async def test_list_products_unlimited_stock_is_null(mcp: FastMCP) -> None:
+async def test_list_products_unlimited_stock_is_null(harness: Harness) -> None:
     product = {**PRODUCT, "variants": [{"id": 10, "price": "5.00", "stock": None}]}
     respx.get(PRODUCTS_URL).respond(200, json=[product])
 
-    data = await _call(mcp, {})
+    data = await _call(harness, {})
 
     assert data["products"][0]["stock_total"] is None
 
 
 @respx.mock
-async def test_list_products_empty_page_404_returns_empty(mcp: FastMCP) -> None:
+async def test_list_products_empty_page_404_returns_empty(harness: Harness) -> None:
     respx.get(PRODUCTS_URL).respond(404, json={"code": 404, "message": "Not Found"})
 
-    data = await _call(mcp, {"page": 9})
+    data = await _call(harness, {"page": 9})
 
     assert data["products"] == []
     assert data["has_more"] is False
