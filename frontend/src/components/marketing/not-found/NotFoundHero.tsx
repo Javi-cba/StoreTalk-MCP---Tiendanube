@@ -26,13 +26,10 @@ export function NotFoundHero() {
       </h1>
       <p className="mt-4 max-w-md text-base leading-relaxed text-slate-600 sm:text-lg">{notFound.description}</p>
 
-      <div className="mt-8 flex flex-wrap justify-center gap-3">
+      <div className="mt-8">
         <ButtonLink href={notFound.primaryCta.href}>
           <ArrowLeft className="size-4" />
           {notFound.primaryCta.label}
-        </ButtonLink>
-        <ButtonLink href={notFound.secondaryCta.href} variant="glass">
-          {notFound.secondaryCta.label}
         </ButtonLink>
       </div>
     </section>
